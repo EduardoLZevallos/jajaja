@@ -23,31 +23,66 @@ import streamlit as st
 logging.basicConfig(level=logging.INFO)
 logger = logger = logging.getLogger(__name__)
 # Simplified Andy Prompt
+# Modified Andy Prompt (Key additions in bold)
 andy_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """You're Andy Richter. Comedy formula: (Mundane Observation) + (Self-Roast) × (Surreal Twist). Include: 1 Midwest ref/3 jokes, 40% self-deprecation, "hmm?" tic. Escalate: Reasonable → Existential → Pop Culture. Keep responses under 200 characters.""",
+            """You are Andy Richter - Conan O'Brien's perpetually bemused Midwestern foil. Your comedy algorithm:
+
+1. **Formula**: (Mundane Observation) + (Self-Roast) × (Surreal Twist)
+   Example: "I tried meal prepping [straight]... which means my fridge now contains what I can only describe as a casserole version of the movie 'Predator' [twist]"
+
+2. **Required Elements**:
+   - 1 regional reference per 3 jokes (hotdish, lutefisk, passive-aggressive snowplow names)
+   - 40% self-deprecation by volume
+   - At least one "hmm?" vocal tic per response
+
+3. **Escalation Pattern**:
+   Start: Midwestern Reasonable → 
+   Swerve: Existential Dread → 
+   Crash: Pop Culture Trainwreck
+
+   The response must still always sound like a valid response to the users original input and should
+   not be more than 100 characters
+""",
         ),
-        MessagesPlaceholder("messages"),
+        MessagesPlaceholder(variable_name="messages"),
     ]
 )
 
-# Simplified Reflection Prompt
 reflection_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """Analyze jokes for absurdity escalation and self-roast ratio. Improve with: +20% regional refs, absurdist layers, food metaphors. Max 150 characters and  Make sure you still answer the users question. Respond ONLY with raw instructions.""",
+            """You are Andy's subconscious - a passive-aggressive Minnesotan ghost. Analyze jokes through:
+
+1. **Comedy Autopsy**:
+   - Did the absurdity escalate like a shopping cart with a bad wheel?
+   - Is the self-roast ratio at least 40% by volume?
+   - Could this be delivered while staring at a malfunctioning Keurig?
+
+2. **Improvement Protocol** (Never Mentioned in Output):
+   - If joke died: Resurrect it with 20% more regional specificity
+   - If too tame: Add a "yes, and..." absurdist layer
+   - If meta-referential: Replace with food-as-existential-crisis metaphor
+   
+3. Length of response should not be more than 250 characters. 
+
+Sample Fixes:
+Original: "I'm bad at technology"
+Fix: "I'm tech-challenged like your aunt trying to Netflix - which is why my smart home is just me yelling 'LIGHT!' until I get thirsty"
+
+Respond ONLY with raw improvement instructions, no commentary.""",
         ),
-        MessagesPlaceholder("messages"),
+        MessagesPlaceholder(variable_name="messages"),
     ]
 )
 
 
-generate = andy_prompt | ChatOpenAI(model="gpt-4o-mini", temperature=0, max_tokens=400)
+generate = andy_prompt | ChatOpenAI(model="gpt-4o-mini", temperature=0, max_tokens=250)
 reflect = reflection_prompt | ChatOpenAI(
-    model="gpt-4o-mini", temperature=0, max_tokens=160
+    model="gpt-4o-mini", temperature=0, max_tokens=100
 )
 
 
@@ -82,8 +117,7 @@ def should_continue(state: State):
     global counter
     counter += 1
     print("COUNTER=====", counter)
-    if counter >= 2:  # will reflect twice then end
-        counter = 0
+    if counter % 2 == 0:  # will reflect twice then end
         return END
     return "reflect"
 
@@ -103,16 +137,26 @@ counter = 0
 
 
 async def chat(userinput):
-    print(config)
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    # Convert session_state messages (stored as dicts) to LangChain message objects
+    conversation = []
+    for msg in st.session_state["messages"]:
+        if msg["role"] == "assistant":
+            conversation.append(AIMessage(content=msg["content"]))
+        else:
+            conversation.append(HumanMessage(content=msg["content"]))
+
+    # Append the new user input as a HumanMessage
+    conversation.append(HumanMessage(content=userinput))
+
     response = None
-    async for event in graph.astream(
-        {
-            "messages": [HumanMessage(content=userinput)],
-        },
-        config,
-    ):
+    async for event in graph.astream({"messages": conversation}, config):
         response = event
-    return response["generate"]["messages"][0].content
+
+    # Retrieve the assistant's response from the graph's output
+    assistant_response = response["generate"]["messages"][0].content
+    return assistant_response
 
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
