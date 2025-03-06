@@ -1,0 +1,25 @@
+[project]
+name = "jajaja"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Eduardo Zevallos", email = "eduardolzevallos@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "jupyter>=1.1.1",
+    "langchain-openai>=0.3.6",
+    "langgraph>=0.2.73",
+    "langsmith>=0.3.8",
+    "python-dotenv>=1.0.1",
+    "requests>=2.32.3",
+    "streamlit>=1.43.0",
+]
+
+[project.scripts]
+humor = "humor:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
